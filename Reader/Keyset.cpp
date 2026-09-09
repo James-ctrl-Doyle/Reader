@@ -34,6 +34,9 @@ static BOOL _unregister_hotkey(HWND hWnd, DWORD kid);
 keydata_t g_Keysets[KI_MAXCOUNT] = 
 {
     { MAKELONG(KT_HOTKEY, KI_HIDE),             IDHK_SHWIN, 0, 0, MAKEWORD('H', HOTKEYF_ALT),                      IDC_HK_HIDE,        IDC_CHECK_HIDE,        OnHideWin,     IDS_HIDE_SHOW_WINDOW },
+    { MAKELONG(KT_HOTKEY, KI_HIDE2),            ID_HOTKEY_SHOW_HIDE_WINDOW2, 0, 0, MAKEWORD('H', HOTKEYF_CONTROL|HOTKEYF_ALT),   IDC_HK_HIDE2,       IDC_CHECK_HIDE2,       OnHideWin,     IDS_HIDE_SHOW_WINDOW },
+    { MAKELONG(KT_HOTKEY, KI_HIDE3),            ID_HOTKEY_SHOW_HIDE_WINDOW3, 0, 0, MAKEWORD('H', HOTKEYF_CONTROL|HOTKEYF_SHIFT), IDC_HK_HIDE3,       IDC_CHECK_HIDE3,       OnHideWin,     IDS_HIDE_SHOW_WINDOW },
+    { MAKELONG(KT_HOTKEY, KI_HIDE4),            ID_HOTKEY_SHOW_HIDE_WINDOW4, 0, 0, MAKEWORD('Q', HOTKEYF_ALT),                   IDC_HK_HIDE4,       IDC_CHECK_HIDE4,       OnHideWin,     IDS_HIDE_SHOW_WINDOW },
     { MAKELONG(KT_SHORTCUTKEY, KI_BORDER),      0,          0, 0, MAKEWORD(VK_F12, 0),                             IDC_HK_BORDER,      IDC_CHECK_BORDER,      OnHideBorder,  IDS_HIDE_SHOW_BORDER },
     { MAKELONG(KT_SHORTCUTKEY, KI_FULLSCREEN),  0,          0, 0, MAKEWORD(VK_F11, 0),                             IDC_HK_FULLSCREEN,  IDC_CHECK_FULLSCREEN,  OnFullScreen,  IDS_FULLSRCEEN },
     { MAKELONG(KT_SHORTCUTKEY, KI_TOP),         0,          0, 0, MAKEWORD('T', HOTKEYF_CONTROL),                  IDC_HK_TOP,         IDC_CHECK_TOP,         OnTopmost,     IDS_TOPMOST },
@@ -89,7 +92,7 @@ void KS_GetDefaultKeyset(keyset_t *keyset)
     for (i=KI_HIDE; i<KI_MAXCOUNT && i<MAX_KEYSET_COUNT; i++)
     {
         keyset[i].value = g_Keysets[i].defval;
-        keyset[i].is_disable = 0;
+        keyset[i].is_disable = 1;   // default: all keys disabled, enable what you need
     }
 }
 
@@ -231,8 +234,8 @@ INT_PTR CALLBACK KS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
             for (i=KI_HIDE; i<KI_MAXCOUNT; i++)
             {
                 SendMessage(GetDlgItem(hDlg, g_Keysets[i].ctrl_id), HKM_SETHOTKEY, g_Keysets[i].defval, 0);
-                SendMessage(GetDlgItem(hDlg, g_Keysets[i].able_id), BM_SETCHECK, BST_CHECKED, NULL);
-                EnableWindow(GetDlgItem(hDlg, g_Keysets[i].ctrl_id), TRUE);
+                SendMessage(GetDlgItem(hDlg, g_Keysets[i].able_id), BM_SETCHECK, BST_UNCHECKED, NULL);
+                EnableWindow(GetDlgItem(hDlg, g_Keysets[i].ctrl_id), FALSE);
             }
             break;
         default:
@@ -380,21 +383,23 @@ static BOOL _unregister_hotkey(HWND hWnd, DWORD kid)
 
 BOOL KS_RegisterAllHotKey(HWND hWnd)
 {
-    int i;
+    int i, fail = 0;
     TCHAR desc[256] = { 0 };
 
     for (i=KI_HIDE; i<KI_MAXCOUNT; i++)
     {
         if (LOWORD(g_Keysets[i].key) == KT_HOTKEY)
         {
+            if (g_Keysets[i].is_disable && *(g_Keysets[i].is_disable))
+                continue;
             LoadString(hInst, g_Keysets[i].desc, desc, 256);
             if (!_register_hotkey(hWnd, g_Keysets[i].key_id, *(g_Keysets[i].pvalue), desc))
             {
-                return FALSE;
+                fail++;   // do not abort: other hot keys must still register
             }
         }
     }
-    return TRUE;
+    return (fail == 0);
 }
 
 BOOL KS_UnRegisterAllHotKey(HWND hWnd)
