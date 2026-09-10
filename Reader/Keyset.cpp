@@ -68,31 +68,58 @@ void KS_Init(HWND hWnd, keyset_t *keyset)
     SetGlobalKey(hWnd);
 }
 
+// The config slot of an entry is the keyid stored in key (HIWORD), NOT its array
+// index in g_Keysets.  This decouples the table layout from the persisted config:
+// a new key can be inserted anywhere in g_Keysets without moving the slot of any
+// existing key, so configs written by older versions keep their meaning
+// (keyset[] is serialized positionally into JSON).
+static int _keyset_slot(const keydata_t *kd)
+{
+    int kid = (int)HIWORD(kd->key);
+
+    return (kid >= 0 && kid < MAX_KEYSET_COUNT) ? kid : -1;
+}
+
+// Which keys are enabled out of the box: only the first boss key (Alt+H) is on;
+// every other hot key / shortcut key starts disabled and is opt-in.
+static BOOL _default_enable(int kid)
+{
+    return (kid == KI_HIDE);
+}
+
 void KS_UpdateKeyset(keyset_t *keyset)
 {
-    int i;
+    int i, kid;
 
     if (!keyset)
         return;
 
-    for (i=KI_HIDE; i<KI_MAXCOUNT && i<MAX_KEYSET_COUNT; i++)
+    for (i=KI_HIDE; i<KI_MAXCOUNT; i++)
     {
-        g_Keysets[i].pvalue =  &(keyset[i].value);
-        g_Keysets[i].is_disable = &(keyset[i].is_disable);
+        kid = _keyset_slot(&g_Keysets[i]);
+        if (kid < 0)
+            continue;
+
+        g_Keysets[i].pvalue     = &(keyset[kid].value);
+        g_Keysets[i].is_disable = &(keyset[kid].is_disable);
     }
 }
 
 void KS_GetDefaultKeyset(keyset_t *keyset)
 {
-    int i;
+    int i, kid;
 
     if (!keyset)
         return;
 
-    for (i=KI_HIDE; i<KI_MAXCOUNT && i<MAX_KEYSET_COUNT; i++)
+    for (i=KI_HIDE; i<KI_MAXCOUNT; i++)
     {
-        keyset[i].value = g_Keysets[i].defval;
-        keyset[i].is_disable = 1;   // default: all keys disabled, enable what you need
+        kid = _keyset_slot(&g_Keysets[i]);
+        if (kid < 0)
+            continue;
+
+        keyset[kid].value = g_Keysets[i].defval;
+        keyset[kid].is_disable = _default_enable(kid) ? 0 : 1;
     }
 }
 
@@ -104,6 +131,8 @@ void KS_OpenDlg(void)
 INT_PTR CALLBACK KS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     int i,j;
+    int kid = 0;
+    BOOL enable = FALSE;
     LRESULT res;
     DWORD tempkeys[KI_MAXCOUNT] = {0};
     int tempable[KI_MAXCOUNT] = {0};
@@ -231,11 +260,18 @@ INT_PTR CALLBACK KS_DlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
             return (INT_PTR)TRUE;
             break;
         case IDC_BUTTON_DEFAULT:
+            // Keep in sync with KS_GetDefaultKeyset: restore the default values and
+            // check/enable only the keys that are enabled by default.
             for (i=KI_HIDE; i<KI_MAXCOUNT; i++)
             {
+                kid = _keyset_slot(&g_Keysets[i]);
+                if (kid < 0)
+                    continue;
+
+                enable = _default_enable(kid);
                 SendMessage(GetDlgItem(hDlg, g_Keysets[i].ctrl_id), HKM_SETHOTKEY, g_Keysets[i].defval, 0);
-                SendMessage(GetDlgItem(hDlg, g_Keysets[i].able_id), BM_SETCHECK, BST_UNCHECKED, NULL);
-                EnableWindow(GetDlgItem(hDlg, g_Keysets[i].ctrl_id), FALSE);
+                SendMessage(GetDlgItem(hDlg, g_Keysets[i].able_id), BM_SETCHECK, enable ? BST_CHECKED : BST_UNCHECKED, NULL);
+                EnableWindow(GetDlgItem(hDlg, g_Keysets[i].ctrl_id), enable);
             }
             break;
         default:
