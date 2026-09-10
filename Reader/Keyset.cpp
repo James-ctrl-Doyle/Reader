@@ -80,11 +80,22 @@ static int _keyset_slot(const keydata_t *kd)
     return (kid >= 0 && kid < MAX_KEYSET_COUNT) ? kid : -1;
 }
 
-// Which keys are enabled out of the box: only the first boss key (Alt+H) is on;
-// every other hot key / shortcut key starts disabled and is opt-in.
+// Which keys are enabled out of the box.  Everything else starts disabled and
+// is opt-in from the key settings dialog.
 static BOOL _default_enable(int kid)
 {
-    return (kid == KI_HIDE);
+    switch (kid)
+    {
+    case KI_HIDE:       // boss key 1 (Alt+H)
+    case KI_BORDER:     // hide/show border (F12)
+    case KI_PAGEUP:     // previous page (Left)
+    case KI_PAGEDOWN:   // next page (Right)
+    case KI_LINEUP:     // line up (Up)
+    case KI_LINEDOWN:   // line down (Down)
+        return TRUE;
+    default:
+        return FALSE;
+    }
 }
 
 void KS_UpdateKeyset(keyset_t *keyset)

@@ -209,6 +209,7 @@ typedef struct header_t
     int use_same_font;
     u32 bg_color;
     BYTE alpha;
+    int transparent_bg;   // 1 = background fully transparent, text stays opaque
     int char_gap;
     int line_gap;
     int paragraph_gap;

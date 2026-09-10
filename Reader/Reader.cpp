@@ -1835,6 +1835,12 @@ LRESULT OnCreate(HWND hWnd)
     _WndInfo.bTopMost = (_header->exstyle & WS_EX_TOPMOST) == WS_EX_TOPMOST;
     _WndInfo.status = (_header->style & WS_MINIMIZEBOX) == 0 ? ds_fullscreen : (((_header->style & WS_CAPTION) == 0) ? ds_borderless : ds_normal);
 
+    // Borderless mode removes the menu bar, so the "hide/show border" key is the only
+    // way back to it.  Never run without that escape hatch (e.g. after hand-editing the
+    // config), otherwise the menu would be unreachable for good.
+    if (_WndInfo.status == ds_borderless && _header->keyset[KI_BORDER].is_disable)
+        _header->keyset[KI_BORDER].is_disable = 0;
+
     _WndInfo.hMenu = GetMenu(hWnd);
     // create status bar
     _WndInfo.hStatusBar = CreateStatusWindow(WS_CHILD | WS_VISIBLE, _T("Please open a text."), hWnd, IDC_STATUSBAR);
@@ -2195,6 +2201,13 @@ VOID OnDraw(HWND hWnd)
     if (is_blank)
     {
         alpha = _header->alpha < MIN_ALPHA_VALUE ? MIN_ALPHA_VALUE : _header->alpha;
+    }
+    else if (_header->transparent_bg)
+    {
+        // Transparent background: alpha 0 makes the desktop show through and
+        // UpdateLayeredWindow turns those pixels click-through.  The text is
+        // composited separately with _textAlpha, so it stays opaque.
+        alpha = 0;
     }
 
     // load bg image
