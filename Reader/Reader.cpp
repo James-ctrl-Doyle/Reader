@@ -2523,6 +2523,15 @@ LRESULT OnTopmost(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
+// Toggle the transparent-background flag.  The visual effect only shows in
+// borderless mode (F12), matching the display-settings checkbox behaviour.
+LRESULT OnTransBG(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    _header->transparent_bg = !_header->transparent_bg;
+    Invalidate(hWnd, TRUE, FALSE);
+    return 0;
+}
+
 LRESULT OnOpenFile(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     if (IsWindow(_hFindDlg))
